@@ -1,1 +1,5 @@
 *~
+main.hi
+main.o
+zopfli-proxy
+zopfli_compress.o
