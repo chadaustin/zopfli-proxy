@@ -40,11 +40,9 @@ app request = do
           HC.checkStatus = \_r _s _h -> Nothing }
                                         
     HC.httpLbs backendRequest {HC.checkStatus = \_r _s _h -> Nothing} manager
-  --backend <- HC.httpLbs backendRequest manager -- simpleHTTP (getRequest "http://localhost:4000")
   
   return $ convertResponse response
 
 main :: IO ()
 main = do
-  --config <- HC.parseUrl $ "http://localhost:8000"
   Warp.run 3000 $ app
