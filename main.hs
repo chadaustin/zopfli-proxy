@@ -21,7 +21,7 @@ import qualified Network.HTTP.Types as HT
 import qualified Network.Wai.Handler.Warp as Warp
 
 foreign import ccall "zopfli_compress" zopfli_compress
-  :: Int -> CString -> Ptr Int -> CString
+  :: CSize -> CString -> Ptr CSize -> IO CString
 
 -- copied from https://github.com/ghc/packages-bytestring/blob/bytestring-0.10.4.0-release/Data/ByteString/Unsafe.hs#L264
 unsafePackMallocCStringLen :: CStringLen -> IO BS.ByteString
@@ -33,9 +33,9 @@ zopfli :: BS.ByteString -> BS.ByteString
 zopfli input = unsafePerformIO $ do
   alloca $ \output_length_ptr ->
     unsafeUseAsCStringLen input $ \(input_str, input_length) -> do
-      let output_str = zopfli_compress input_length input_str output_length_ptr
+      output_str <- zopfli_compress (toEnum input_length) input_str output_length_ptr
       output_length <- peek output_length_ptr
-      unsafePackMallocCStringLen (output_str, output_length)
+      unsafePackMallocCStringLen (output_str, fromEnum output_length)
 
 zopfliLazy :: BSL.ByteString -> BSL.ByteString
 zopfliLazy = BSL.fromStrict . zopfli . BSL.toStrict
