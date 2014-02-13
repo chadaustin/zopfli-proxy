@@ -42,7 +42,11 @@ zopfliLazy = BSL.fromStrict . zopfli . BSL.toStrict
 
 zopfliResponse :: HC.Response BSL.ByteString -> HC.Response BSL.ByteString
 zopfliResponse response =
-  response { HC.responseBody = zopfliLazy $ HC.responseBody response }
+  response {
+    HC.responseHeaders = newHeaders ++ filter ((/= "Content-Length") . fst) (HC.responseHeaders response),
+    HC.responseBody = body }
+  where body = zopfliLazy $ HC.responseBody response
+        newHeaders = [("Content-Encoding", "gzip"), ("Content-Length", BS.pack $ show $ BSL.length body)]
 
 convertResponse response =
   Wai.responseLBS
