@@ -4,11 +4,13 @@ module Main where
 import Control.Monad.IO.Class
 import Data.Monoid
 import Foreign.C
+import Foreign.ForeignPtr
 import Foreign.Ptr
 import Foreign.Storable
 import Foreign.Marshal.Alloc
 import System.IO.Unsafe
 import Data.ByteString.Unsafe
+import Data.ByteString.Internal (c_free_finalizer, ByteString(PS))
 
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import qualified Data.ByteString.Char8 as BS
@@ -20,6 +22,12 @@ import qualified Network.Wai.Handler.Warp as Warp
 
 foreign import ccall "zopfli_compress" zopfli_compress
   :: Int -> CString -> Ptr Int -> CString
+
+-- copied from https://github.com/ghc/packages-bytestring/blob/bytestring-0.10.4.0-release/Data/ByteString/Unsafe.hs#L264
+unsafePackMallocCStringLen :: CStringLen -> IO BS.ByteString
+unsafePackMallocCStringLen (cstr, len) = do
+    fp <- newForeignPtr c_free_finalizer (castPtr cstr)
+    return $! PS fp 0 len
 
 zopfli :: BS.ByteString -> BS.ByteString
 zopfli input = unsafePerformIO $ do
