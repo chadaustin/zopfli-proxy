@@ -12,6 +12,7 @@ import System.IO.Unsafe
 import Data.ByteString.Unsafe
 import Data.ByteString.Internal (c_free_finalizer, ByteString(PS))
 
+import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import qualified Data.ByteString.Char8 as BS
 import qualified Network.Wai as Wai
@@ -43,10 +44,14 @@ zopfliLazy = BSL.fromStrict . zopfli . BSL.toStrict
 zopfliResponse :: HC.Response BSL.ByteString -> HC.Response BSL.ByteString
 zopfliResponse response =
   response {
-    HC.responseHeaders = newHeaders ++ filter ((/= "Content-Length") . fst) (HC.responseHeaders response),
+    HC.responseHeaders = newHeaders ++ filter (headerNameIsNot "Content-Length") (HC.responseHeaders response),
     HC.responseBody = body }
-  where body = zopfliLazy $ HC.responseBody response
-        newHeaders = [("Content-Encoding", "gzip"), ("Content-Length", BS.pack $ show $ BSL.length body)]
+  where
+    headerNameIsNot name = (/= name) . fst
+    body = zopfliLazy $ HC.responseBody response
+    newHeaders = [
+      ("Content-Encoding", "gzip"),
+      ("Content-Length", BS.pack $ show $ BSL.length body)]
 
 convertResponse response =
   Wai.responseLBS
