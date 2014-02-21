@@ -1,3 +1,5 @@
+build
+.sconsign.dblite
 *~
 main.hi
 main.o

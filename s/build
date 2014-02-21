@@ -1,4 +1,3 @@
 #!/bin/bash
 set -e
-gcc -Wall -Werror -c -o zopfli_compress.o zopfli_compress.c
-ghc -o zopfli-proxy main.hs zopfli_compress.o
+scons -Q "$@"
