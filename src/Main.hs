@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Main where
+module Main (main) where
 
 import Control.Monad.IO.Class
 import Data.Monoid
-
+import Data.IORef
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString as BS
@@ -29,11 +29,10 @@ zopfliResponse response = Wai.responseLBS
 data CacheKey = CacheKey BS.ByteString HT.RequestHeaders
 type Cache = Map.Map CacheKey BSL.ByteString
 
-app :: Wai.Request -> (Wai.Response -> IO Wai.ResponseReceived) -> IO Wai.ResponseReceived
-app request respond = do
-    -- TODO: disallow non-GET-or-HEAD
+makeBackendRequest :: Wai.Request -> IO (HC.Response BSL.ByteString)
+makeBackendRequest request = do
     let backendPath = Wai.rawPathInfo request
-    response <- HC.withManager $ \manager -> do
+    HC.withManager $ \manager -> do
         requestp <- HC.parseUrl $ "http://localhost:8000" <> (BSC.unpack backendPath)
         requestBody <- liftIO $ Wai.lazyRequestBody request
         let backendRequest = requestp {
@@ -43,13 +42,35 @@ app request respond = do
                 HC.checkStatus = \_r _s _h -> Nothing }
     
         HC.httpLbs backendRequest {HC.checkStatus = \_r _s _h -> Nothing} manager
-    
-    let responseHeaders = HC.responseHeaders response
-    let hasContentType = any ((== "Content-Encoding") . fst) responseHeaders
-    respond $ if hasContentType
-        then Wai.responseLBS (HC.responseStatus response) (HC.responseHeaders response) (HC.responseBody response)
-        else zopfliResponse response
 
+convertResponse :: HC.Response BSL.ByteString -> Wai.Response
+convertResponse response =
+    Wai.responseLBS (HC.responseStatus response)
+                    (HC.responseHeaders response)
+                    (HC.responseBody response)
+
+app :: IORef Cache -> Wai.Request -> (Wai.Response -> IO Wai.ResponseReceived) -> IO Wai.ResponseReceived
+app cache request respond = do
+    let method = Wai.requestMethod request
+    if (method == HT.methodGet || method == HT.methodHead) then do
+        -- check cache
+
+        response <- makeBackendRequest request
+
+        -- store into cache
+        let responseHeaders = HC.responseHeaders response
+        -- hacky hack, should check specifically for gzip
+        let hasContentType = any ((== "Content-Encoding") . fst) responseHeaders
+
+        if hasContentType then
+            respond $ zopfliResponse response
+        else
+            respond $ convertResponse response
+    else do
+        response <- makeBackendRequest request
+        respond $ convertResponse response
+    
 main :: IO ()
 main = do
-    Warp.run 3000 $ app
+    cache <- newIORef Map.empty
+    Warp.run 3000 $ app cache
