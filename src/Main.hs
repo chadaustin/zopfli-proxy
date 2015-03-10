@@ -27,7 +27,8 @@ zopfliResponse response = Wai.responseLBS
         ("Content-Length", BSC.pack $ show $ BSL.length body)]
 
 data CacheKey = CacheKey BS.ByteString HT.RequestHeaders
-type Cache = Map.Map CacheKey BSL.ByteString
+                deriving (Show, Eq, Ord)
+type Cache = Map.Map CacheKey Wai.Response
 
 makeBackendRequest :: Wai.Request -> IO (HC.Response BSL.ByteString)
 makeBackendRequest request = do
@@ -49,24 +50,38 @@ convertResponse response =
                     (HC.responseHeaders response)
                     (HC.responseBody response)
 
+cacheKeyFromRequestAndResponse :: Wai.Request -> HC.Response BSL.ByteString -> CacheKey
+cacheKeyFromRequestAndResponse = error "hi"
+
+findCacheHit :: Cache -> Wai.Request -> Maybe (Wai.Response)
+findCacheHit = error "hi"
+
 app :: IORef Cache -> Wai.Request -> (Wai.Response -> IO Wai.ResponseReceived) -> IO Wai.ResponseReceived
 app cache request respond = do
     let method = Wai.requestMethod request
     if (method == HT.methodGet || method == HT.methodHead) then do
-        -- check cache
+        c <- readIORef cache
+        fr <- case findCacheHit c request of
+            Just r -> return r
+            Nothing -> do
+                response <- makeBackendRequest request
 
-        response <- makeBackendRequest request
+                let responseHeaders = HC.responseHeaders response
+                -- hacky hack, should support gzip decoding
+                let hasContentType = any ((== "Content-Encoding") . fst) responseHeaders
 
-        -- store into cache
-        let responseHeaders = HC.responseHeaders response
-        -- hacky hack, should check specifically for gzip
-        let hasContentType = any ((== "Content-Encoding") . fst) responseHeaders
+                let cr = if hasContentType then
+                             convertResponse response
+                         else
+                             -- only compress if the backend is uncompressed
+                             zopfliResponse response
 
-        if hasContentType then
-            respond $ zopfliResponse response
-        else
-            respond $ convertResponse response
+                modifyIORef cache $ Map.insert (cacheKeyFromRequestAndResponse request response) cr
+                return (cr :: Wai.Response)
+
+        respond (fr :: Wai.Response)
     else do
+        -- TODO: implement lightweight passthru
         response <- makeBackendRequest request
         respond $ convertResponse response
     
