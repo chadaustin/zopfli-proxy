@@ -76,7 +76,8 @@ app cache request respond = do
                              -- only compress if the backend is uncompressed
                              zopfliResponse response
 
-                modifyIORef cache $ Map.insert (cacheKeyFromRequestAndResponse request response) cr
+                atomicModifyIORef cache $ \m ->
+                    (Map.insert (cacheKeyFromRequestAndResponse request response) cr m, ())
                 return (cr :: Wai.Response)
 
         respond (fr :: Wai.Response)
