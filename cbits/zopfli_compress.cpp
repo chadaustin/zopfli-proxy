@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "zopfli/src/zopfli/zopfli.h"
+#include <zopfli/zopfli.h>
 
 extern "C" const unsigned char* zopfli_compress(
     size_t input_size,

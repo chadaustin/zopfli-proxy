@@ -1,7 +1,7 @@
+bin/zopfli-proxy
 build
 .sconsign.dblite
 *~
-main.hi
-main.o
-zopfli-proxy
-zopfli_compress.o
+.cabal-sandbox/
+cabal.sandbox.config
+dist/
