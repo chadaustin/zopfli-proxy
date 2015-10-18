@@ -56,6 +56,9 @@ cacheKeyFromRequestAndResponse = error "hi"
 findCacheHit :: Cache -> Wai.Request -> Maybe (Wai.Response)
 findCacheHit = error "hi"
 
+--type VaryingHeaders = Set (HeaderName, HeaderValue)
+--type HTTPCache = Map URL [Map VaryingHeaders Response]
+
 app :: IORef Cache -> Wai.Request -> (Wai.Response -> IO Wai.ResponseReceived) -> IO Wai.ResponseReceived
 app cache request respond = do
     let method = Wai.requestMethod request
